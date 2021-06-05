@@ -47,6 +47,12 @@ public class Synthesizer
 		@Override
 		public void keyPressed(KeyEvent e)
 		{
+			// eliminate nullptr exception when pressing key out of bounds 
+			if (!KEY_FREQUENCIES.containsKey(e.getKeyChar()))
+			{
+				return;
+			}
+			
 			if (!audioThread.isRunning())
 			{
 				// set frequency of o based on the keyEvent

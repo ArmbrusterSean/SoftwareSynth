@@ -10,7 +10,6 @@ import java.awt.event.ItemEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.util.Random;
 import javax.swing.*;
 import utils.Utils;
 
@@ -18,23 +17,18 @@ public class Oscillator extends SynthControlContainer
 {
 	private static final int TONE_OFFSET_LIMIT = 2000; 
 	
-	private final Random r = new Random();
-	
-	private Waveform waveform = Waveform.Sine;
+	private Wavetable wavetable = Wavetable.Sine;
 	private double keyFrequency;
-	private double frequency;
+	private int wavetableStepSize;
+	private int wavetableIndex;
 	private int toneOffset;
-	private int wavePos;
-	
-	
 	
 	public Oscillator(Synthesizer synth) 
 	{
 		super(synth);
-		JComboBox<Waveform> comboBox = new JComboBox<>
-		(new Waveform[] {Waveform.Sine, Waveform.Square, Waveform.Saw, Waveform.Triangle, Waveform.Noise});			// Let User choose Waveform 
-		comboBox.setSelectedItem(Waveform.Sine);																	// default temp
-		comboBox.setBounds(10, 10, 75, 25);																			// x:10,y:10,w:75,h:25
+		JComboBox<Wavetable> comboBox = new JComboBox<>(Wavetable.values());			// Let User choose Waveform 
+		comboBox.setSelectedItem(Wavetable.Sine);										// default temp
+		comboBox.setBounds(10, 10, 75, 25);												// x:10,y:10,w:75,h:25
 		
 		 //This listens for when items change in comboBox
 		comboBox.addItemListener(l ->
@@ -42,7 +36,7 @@ public class Oscillator extends SynthControlContainer
 			// if l is changed, then state changes to the current waveform 
 			if (l.getStateChange() == ItemEvent.SELECTED)
 			{
-				waveform = (Waveform)l.getItem();																
+				wavetable = (Wavetable)l.getItem();																
 				//System.out.println(waveform);
 			}
 		});
@@ -100,23 +94,9 @@ public class Oscillator extends SynthControlContainer
 		setLayout(null);													// layout manager 
 	}
 	
-	
-	//specify which waveform user wants to use 
-	private enum Waveform
-	{
-		Sine, Square, Saw, Triangle, Noise
-	}
-	
-	public double getKeyFrequency()
-	{
-		return frequency;
-	}
-	
 	public void setKeyFrequency(double frequency)
 	{
-		//set key frequency 
-		keyFrequency = this.frequency = frequency;
-		// apply a tone offset 
+		keyFrequency = frequency;
 		applyToneOffset();
 		
 	}
@@ -130,30 +110,16 @@ public class Oscillator extends SynthControlContainer
 	// returns sample based on selected waveform 
 	public double nextSample()
 	{
-		
-		double tDivP = (wavePos++ / (double)Synthesizer.AudioInfo.SAMPLE_RATE) / (1d / frequency);				// (time / time period)
-		switch (waveform)
-		{
-			case Sine:
-				return Math.sin(Utils.Math.frequencyToAngularFrequency(frequency) * (wavePos - 1) / Synthesizer.AudioInfo.SAMPLE_RATE);
-			case Square:
-				return Math.signum(Math.sin(Utils.Math.frequencyToAngularFrequency(frequency) * (wavePos - 1) / Synthesizer.AudioInfo.SAMPLE_RATE));		// 1 or 0 || 1 or -1
-			case Saw:
-				return 2d * (tDivP - Math.floor(0.5 + tDivP));
-			case Triangle:
-				return 2d * Math.abs(2d * (tDivP - Math.floor(0.5 + tDivP))) - 1;
-			case Noise:
-				return r.nextDouble();
-				default:
-					throw new RuntimeException("Oscillator sets to unknown wavefomr");
-		}
+		double sample = wavetable.getSamples()[wavetableIndex];
+		wavetableIndex = (wavetableIndex + wavetableStepSize) % Wavetable.SIZE;
+		return sample;
 	}
+		
 	
 	// Apply tone offset method 
 	private void applyToneOffset()
 	{
-		frequency = keyFrequency * Math.pow(2,  getToneOffset());
-		
+		wavetableStepSize = (int)(Wavetable.SIZE * (keyFrequency * Math.pow(2, getToneOffset())) / Synthesizer.AudioInfo.SAMPLE_RATE);
 	}
 	
 	
